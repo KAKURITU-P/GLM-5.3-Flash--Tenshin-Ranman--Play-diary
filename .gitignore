@@ -1,0 +1,10 @@
+# プレイメモ(生テキスト写しはローカル専用 — 著作権配慮。PLAY_NOTES_GUIDE.md 参照)
+play-notes*.md
+notes-archive/
+
+# スクショ(ゲーム画面キャプチャは公開リポジトリに載せない)
+tools/screen-*.png
+tools/cursor-*.png
+
+# Pico マウスの動作 state(ローカルの一時情報)
+tools/pico-mouse-state.json
