@@ -13,9 +13,15 @@
 | ディスプレイ | HP 222va(DP・実在)+ HDP-V104(HDMI ダミープラグ)、**複製モード 1920x1080** |
 | Pico W | COM6、115200、CircuitPython、factor 1.0(マウス加速オフ・感度10の 1:1 環境) |
 
+**実行環境の違い(重要)**:
+- **GLMたん(ZCode)**: Computer Use(CUA)が使える → 観察は CUA 第一選択、GDI はフォールバック
+- **Qwenたん(LM Studio)**: **Computer Use は使えない** → 観察は **GDI スクショ(fullscreen.ps1)のみ**。node_repl も存在しないため「Same call ×5」警告は出ない
+
+テキスト送りの方法(Pico HID 実イベント)は両環境で共通。
+
 ## 1. 観察方法
 
-### CUA(第一選択)
+### CUA(**ZCode 環境のみ** — LM Studio では使えない)
 - computer-use スキルをロードし、毎呼び出しブートストラップ(node_repl は呼び出し毎にワーカーがリセットされる):
   ```js
   const root = process.env.ZCODE_CUA_PLUGIN_ROOT ?? process.env.ZCODE_PLUGIN_ROOT ?? process.env.CLAUDE_PLUGIN_ROOT;
@@ -30,12 +36,14 @@
 - window.bounds から画面座標を計算する(画面X = bounds.x + ラスターX)
 - **CUA クリックは使わない**(下記 §2)
 
-### GDI フォールバック
-- CUA が不調(応答消失 2 回連続など)のとき:
-  `powershell -NoProfile -ExecutionPolicy Bypass -File tools\fullscreen.ps1` → 出力 PNG を Read で読む
+### GDI スクショ(全環境共通 — **LM Studio 環境では唯一の観察手段**)
+- `powershell -NoProfile -ExecutionPolicy Bypass -File tools\fullscreen.ps1` → 出力 PNG を Read で読む
+- **LM Studio 環境では CUA がないため、常にこの方法で観察する**
+- ZCode 環境では CUA が不調(応答消失 2 回連続など)のときのフォールバック
 - 応答消失エラーは「observe the target state first」と言われるので、自動リプレイではなく観察からやり直す
+- GDI 方式は 1 ページ 3 呼び出し(クリック・fullscreen・Read)なので、進行効率は CUA 方式の半分程度
 
-### 「Same call ×5」警告
+### 「Same call ×5」警告(**ZCode 環境のみ** — LM Studio では node_repl 自体がないため出ない)
 - node_repl が同一パターンの反復を検知して出す**誤検知**(ページ送り観察は必然的に同一パターンになる)
 - 呼び出しが実際に拒否されない限り無視して続行してよい(14 コマ連続で問題なしの実績あり)
 
