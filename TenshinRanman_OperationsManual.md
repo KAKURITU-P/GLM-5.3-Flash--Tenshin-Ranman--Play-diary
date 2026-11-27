@@ -62,6 +62,66 @@
   - 停滞復活時: `redraw.ps1 -WaitSec 0`(消灯は済んでいるので即実行)
 - 初期状態がウィンドウでも最大化でも、2 回の dc で元に戻るので汎用
 
+## ツールリファレンス(スクリプト一覧と使い方)
+
+すべて `tools/` フォルダ配下。呼び出し形式: `powershell -NoProfile -ExecutionPolicy Bypass -File tools\<script>.ps1 <args>`
+
+### pico-mouse.ps1 — Pico W HID マウス操縦(テキスト送りの本体)
+
+| コマンド | 引数 | 動作 |
+|---|---|---|
+| ping | なし | PING→PONG で生存確認 |
+| where | なし | state の位置と実位置(OS カーソル)を表示 |
+| reset | なし | state ファイルを削除(初期化) |
+| setfactor | `-Factor <数値>` | state の factor を設定・保存 |
+| move | `-X -Y [-Resync]` | 指定座標へ移動(クリックなし) |
+| click | `-X -Y [-Resync]` | 移動+左クリック(**テキスト送りはこれ**) |
+| dc | `-X -Y [-Resync]` | 移動+ダブルクリック(タイトルバーで最大化トグル等に使用) |
+| rclick | `-X -Y [-Resync]` | 移動+右クリック |
+| wheel | `-Y <steps>` | ホイールスクロール |
+
+- 共通パラメータ: `-Port COM6`(既定)、`-Factor 1.0`
+- 出力例: `click -> target(1137,749) real(1137,749)` — **real がターゲットと 30px 以上ズレたら同じクリックを再試行**
+- `-Resync` 付きは画面端スラム(左上 0,0 へ強制移動 → 実位置取得)してから移動するので、state が古いときに使う
+- state ファイル(tools/pico-mouse-state.json): `{x, y, synced, factor}`。calibrate 実行後は位置情報が古くなるので setfactor + Resync で整合させる
+- Ping 不通時は内蔵 Wait-Ready が PING リトライ → Ctrl-C → REPL ブートストラップ(`exec(open('code.py').read())`)で自動復旧を試みる
+
+### fullscreen.ps1 — GDI 全画面スクショ(CUA 代替)
+
+```
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\fullscreen.ps1 [-OutPath <path>]
+```
+
+- `-OutPath` 省略時: `tools\screen-YYYYMMDD-HHmmss.png`
+- 出力: `saved: <path> (1920x1080)` — 取得した PNG は Read ツールで読む
+- **カーソルは GDI キャプチャに映らない**(カーソル位置確認の用途には使えない)
+- モニター消灯時でも DWM 合成が生きていれば正常取得できる(ダミープラグ複製モード環境)
+- モニター消灯後なのに取得画像が古いフレームのまま変化しない → 描画停止(§3 の redraw で復活)
+
+### fullscreen-cursor.ps1 — カーソル合成付きスクショ(診断用)
+
+- 取得画像にカーソル位置の赤十字を合成して保存。カーソルが想定位置にいるかの確認用(通常運用では不要)
+
+### calibrate.ps1 — factor 実測
+
+```
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\calibrate.ps1
+```
+
+- OS 側でカーソルを (100,100) に置き、Pico に M 500 300 を送信 → 実位置から factorX/Y を算出表示
+- **注意**: state を書き換えるが位置情報は「(100,100) 起点で (600,400) にいる」状態になる → 実行後は `setfactor -Factor 1` で factor 再設定し、次のクリックは `-Resync` 付きで位置整合
+
+### redraw.ps1 — 描画起こし(§3 参照)
+
+- 引き渡し直後: `-File redraw.ps1`(既定 10 秒待ってから実行 — HP 画面を消す猶予)
+- 停滞復活時: `-File redraw.ps1 -WaitSec 0`
+- 内部動作: タイトルバー (1100,172) をダブルクリック → 最大化 → 最上部 (1600,12) をダブルクリック → 復元 → スクショ 1 枚保存
+
+### set-mouse-1to1.ps1 — マウス加速オフ設定(環境構築時のみ)
+
+- MouseSpeed=0 / Sensitivity=10 / Threshold=0 を設定し 1 カウント=1px にする(元設定は mouse-backup.json に退避)
+- 一度設定すれば以後は不要。factor 実測の前提になる設定
+
 ## 4. セーブ/ロード
 
 - **Q.SAVE/SAVE/LOAD は絶対に触らない** — セーブ/ロードはユーザー担当
